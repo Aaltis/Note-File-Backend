@@ -6,12 +6,20 @@ create table users(
   password text not null
 );
 
-create table entries (
+create table notes (
   id integer primary key autoincrement,
   ownerid integer not null,
   title text not null,
   text text not null,
   foreign key(ownerid) references user(userid)
 );
+create table files (
+  id integer primary key autoincrement,
+  ownerid integer not null,
+  name text not null,
+  type text not null,
+  foreign key(ownerid) references user(userid)
+);
+
 
 

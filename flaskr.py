@@ -14,6 +14,8 @@ import os
 import re
 from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, redirect, url_for, abort, jsonify
+from werkzeug import secure_filename
+from functools import wraps
 import json
 
 # create our little application :)
@@ -24,8 +26,8 @@ app.config.update(dict(
     DATABASE=os.path.join(app.root_path, 'flaskr.db'),
     DEBUG=True,
     SECRET_KEY='development key',
-    USERNAME='admin',
-    PASSWORD='default'
+    UPLOAD_FOLDER = '/home/aaltis/Note-File/note-file-backend',
+    ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif','zip',])
 ))
 app.config.from_envvar('FLASKR_SETTINGS', silent=True)
 
@@ -89,9 +91,7 @@ def add_entry():
 
 @app.route('/adduser', methods=['POST'])
 def add_user():
-    #resp = jsonify(request.json)
-    #resp.status_code = 200
-    #return resp
+
     #check that email includes atleast one @ and .
     email=check_email(request.json['emailaddress'])
     userexist=checkUserExists(request.json['emailaddress'])
@@ -104,10 +104,16 @@ def add_user():
     else:
         request.json['password'];
         db = get_db()
+        user=request.json['emailaddress']
         db.execute('insert into users (userid,emailaddress,password) values (?, ?, ?)',
                    [None,request.json['emailaddress'], request.json['password']])
         db.commit()
-
+        #create directory for user
+        dir_route=os.path.dirname(os.path.realpath(__file__))
+        dir_route=dir_route+"/userfiles/"+user
+        print dir_route
+        os.makedirs(dir_route)
+        print dir_route
         data=request.json['emailaddress']
         resp = jsonify(result=data)
         resp.status_code = 201
@@ -162,20 +168,75 @@ def logout():
     flash('You were logged out')
     return redirect(url_for('show_entries'))
 
+@app.route('/createnote', methods=['POST'])
+def create_note():
 
-from functools import wraps
+
+    #Check that request files are not empty;
+    if  request.json['userid'] is not None or request.json['title'] is not None or request.json['textbody'] is not None :
+
+        db = get_db()
+        db.execute('insert into notes (id,ownerid,title,text) values (?,?, ?, ?)',
+                  [None,request.json['userid'],request.json['title'], request.json['textbody']])
+        db.commit()
+        #create directory for user
+
+        data=request.json['title']
+        resp = jsonify(result=data)
+        resp.status_code = 201
+        return resp
+    else:
+        resp = jsonify(result="check all fields")
+        resp.status_code = 400
+        return resp
+
+@app.route('/getnotes', methods=['GET'])
+def getnotes():
+    userid=request.args['userid']
+    print userid
+    db = get_db()
+    cursor=db.execute('select * from notes where ownerid=? ',(userid))
+    column_names = [d[0] for d in cursor.description]
+    rows=cursor.fetchall()
+    #print data[0]
+    print cursor.rowcount
+    if(cursor.rowcount!=0):
+        print json.dumps( [dict(ix) for ix in rows] )
+        return json.dumps( [dict(ix) for ix in rows] ) #CREATE JSON
+    #return rows
+    else:
+        resp = jsonify({'result:':"Login failed"})
+        resp.status_code = 401
+        return resp
+    #'Hello ' + request.args['emailaddress']+request.args['password']
+
+
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+
+@app.route('/filetransfersend',methods=['POST'] )
+def filetransfersend():
+    print("we got file")
+    if request.method == 'POST':
+        file = request.files['file']
+        #if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        user = request.args.get("emailaddress")
+        return user
+       # response = HttpResponse("Here's the text of the Web page.")
+       # response = HttpResponse("Text only, please.", content_type="text/plain")
+
+
+
 
 def check_auth(username, password):
     return username == 'admin' and password == 'secret'
 
-def authenticate():
-    message = {'message': "Authenticate."}
-    resp = jsonify(message)
 
-    resp.status_code = 401
-    resp.headers['WWW-Authenticate'] = 'Basic realm="Example"'
 
-    return resp
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
