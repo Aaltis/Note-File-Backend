@@ -170,8 +170,6 @@ def logout():
 
 @app.route('/createnote', methods=['POST'])
 def create_note():
-
-
     #Check that request files are not empty;
     if  request.json['userid'] is not None or request.json['title'] is not None or request.json['textbody'] is not None :
 
@@ -190,20 +188,37 @@ def create_note():
         resp.status_code = 400
         return resp
 
+@app.route('/updatenote', methods=['POST'])
+def update_note():
+    db = get_db()
+    title=request.json['title']
+    print title;
+    text=request.json['textbody']
+    ownerid=request.json['ownerid']
+    id=[request.json['id']]
+    print request.json['title']
+    db.execute("update notes set title=?, text=?, ownerid=? where id=?",(title,text,ownerid,id))
+    db.commit()
+    #create directory for user
+    data=request.json['title']
+    resp = jsonify(result=data)
+    resp.status_code = 200
+    return resp
+
 @app.route('/getnotes', methods=['GET'])
 def getnotes():
     userid=request.args['userid']
     print userid
     db = get_db()
     cursor=db.execute('select * from notes where ownerid=? ',(userid))
-    column_names = [d[0] for d in cursor.description]
     rows=cursor.fetchall()
     #print data[0]
     print cursor.rowcount
     if(cursor.rowcount!=0):
-        print json.dumps( [dict(ix) for ix in rows] )
-        return json.dumps( [dict(ix) for ix in rows] ) #CREATE JSON
-    #return rows
+        resp=jsonify(notes=[dict(ix) for ix in rows])
+        resp.status_code = 200
+
+        return resp
     else:
         resp = jsonify({'result:':"Login failed"})
         resp.status_code = 401
