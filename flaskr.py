@@ -162,11 +162,7 @@ def login():
 
 
 
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    flash('You were logged out')
-    return redirect(url_for('show_entries'))
+
 
 @app.route('/createnote', methods=['POST'])
 def create_note():
@@ -196,13 +192,13 @@ def getnotes():
     print userid
     db = get_db()
     cursor=db.execute('select * from notes where ownerid=? ',(userid))
-    column_names = [d[0] for d in cursor.description]
     rows=cursor.fetchall()
     #print data[0]
     print cursor.rowcount
     if(cursor.rowcount!=0):
-        print json.dumps( [dict(ix) for ix in rows] )
-        return json.dumps( [dict(ix) for ix in rows] ) #CREATE JSON
+        resp=jsonify(notes= [dict(ix) for ix in rows] )
+        resp.status_code=200
+        return resp
     #return rows
     else:
         resp = jsonify({'result:':"Login failed"})
@@ -210,7 +206,37 @@ def getnotes():
         return resp
     #'Hello ' + request.args['emailaddress']+request.args['password']
 
+@app.route('/getnote', methods=['GET'])
+def getnote():
+    noteid=request.args['id']
+    print noteid
+    db = get_db()
+    cursor=db.execute('select * from notes where id=? ',(noteid))
+    data=cursor.fetchone()
+    print data[3]
+    if(data):
+        resp = jsonify({'notetext':data[3]})
+        resp.status_code = 200
+    else:
+        resp = jsonify({'result:':"Login failed"})
+        resp.status_code = 401
 
+    return resp
+    #'Hello ' + request.args['emailaddress']+request.args['password']
+
+@app.route('/updatenote', methods=['PUT'])
+def updatenote():
+        print("update file")
+        x= request.json['id']
+        print x
+        db = get_db()
+        db.execute('update notes set text=?, ownerid=? where id=?',
+                   [request.json['text'],request.json['userid'],request.json['id']])
+        db.commit()
+        #create directory for user
+        resp = jsonify({'result:':"success"})
+        resp.status_code = 200
+        return resp
 
 def allowed_file(filename):
     return '.' in filename and \
