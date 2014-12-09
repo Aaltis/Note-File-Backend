@@ -11,7 +11,7 @@
 """
 
 import os
-import re
+
 from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, redirect, url_for, abort, jsonify
 from werkzeug import secure_filename
@@ -225,7 +225,23 @@ def getnotes():
         return resp
     #'Hello ' + request.args['emailaddress']+request.args['password']
 
-
+@app.route('/getnote', methods=['GET'])
+def getnote():
+    noteid=request.args['noteid']
+    print userid
+    db = get_db()
+    cursor=db.execute('select * from notes where id=? ',(noteid))
+    data=cursor.fetchone()
+    #print data[0]
+    if(data):
+        resp = jsonify({'notetext':data[0]})
+        resp.status_code = 200
+    else:
+        resp = jsonify({'error:':"not found"})
+        resp.status_code = 404
+    db.commit()
+    return resp
+    #'Hello ' + request.args['emailaddress']+request.args['password']
 
 def allowed_file(filename):
     return '.' in filename and \
