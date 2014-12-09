@@ -11,7 +11,7 @@
 """
 
 import os
-import re
+
 from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, redirect, url_for, abort, jsonify
 from werkzeug import secure_filename
@@ -166,8 +166,6 @@ def login():
 
 @app.route('/createnote', methods=['POST'])
 def create_note():
-
-
     #Check that request files are not empty;
     if  request.json['userid'] is not None or request.json['title'] is not None or request.json['textbody'] is not None :
 
@@ -186,6 +184,23 @@ def create_note():
         resp.status_code = 400
         return resp
 
+@app.route('/updatenote', methods=['POST'])
+def update_note():
+    db = get_db()
+    title=request.json['title']
+    print title;
+    text=request.json['textbody']
+    ownerid=request.json['ownerid']
+    id=[request.json['id']]
+    print request.json['title']
+    db.execute("update notes set title=?, text=?, ownerid=? where id=?",(title,text,ownerid,id))
+    db.commit()
+    #create directory for user
+    data=request.json['title']
+    resp = jsonify(result=data)
+    resp.status_code = 200
+    return resp
+
 @app.route('/getnotes', methods=['GET'])
 def getnotes():
     userid=request.args['userid']
@@ -196,10 +211,10 @@ def getnotes():
     #print data[0]
     print cursor.rowcount
     if(cursor.rowcount!=0):
-        resp=jsonify(notes= [dict(ix) for ix in rows] )
-        resp.status_code=200
+        resp=jsonify(notes=[dict(ix) for ix in rows])
+        resp.status_code = 200
+
         return resp
-    #return rows
     else:
         resp = jsonify({'result:':"Login failed"})
         resp.status_code = 401
@@ -208,6 +223,7 @@ def getnotes():
 
 @app.route('/getnote', methods=['GET'])
 def getnote():
+
     noteid=request.args['id']
     print noteid
     db = get_db()
@@ -237,6 +253,7 @@ def updatenote():
         resp = jsonify({'result:':"success"})
         resp.status_code = 200
         return resp
+
 
 def allowed_file(filename):
     return '.' in filename and \
